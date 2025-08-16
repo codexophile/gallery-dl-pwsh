@@ -6,8 +6,8 @@ Requirements: PowerShell 5+ (Windows), gallery-dl installed and on PATH (pip ins
 if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
   Write-Host 'Re-launching script in STA mode for WPF...'
   $psExe = (Get-Process -Id $PID).Path
-  $args = @('-NoProfile','-ExecutionPolicy','Bypass','-File',"$PSCommandPath")
-  Start-Process -FilePath $psExe -ArgumentList $args | Out-Null
+  $staArgs = @('-NoProfile','-ExecutionPolicy','Bypass','-File',"$PSCommandPath")
+  Start-Process -FilePath $psExe -ArgumentList $staArgs | Out-Null
   exit
 }
 
