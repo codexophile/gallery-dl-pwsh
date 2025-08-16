@@ -92,7 +92,7 @@ $xaml = @'
       <Setter Property="Foreground" Value="#f8f8f2"/>
     </Style>
     <Style TargetType="ProgressBar">
-      <Setter Property="Foreground" Value="#f8f8f2"/>
+  <!-- Removed Foreground setter: not supported for ProgressBar in all themes -->
     </Style>
   </Window.Resources>
   <Grid>
