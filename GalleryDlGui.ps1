@@ -37,12 +37,62 @@ $xaml = @'
     <Style TargetType="Button">
       <Setter Property="Margin" Value="4"/>
       <Setter Property="Padding" Value="6,3"/>
+      <Setter Property="Foreground" Value="#f8f8f2"/>
+      <Setter Property="Background" Value="#2d2d40"/>
+      <Setter Property="BorderBrush" Value="#4e4e7e"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="border" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="4">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="border" Property="Background" Value="#3a3a5a"/>
+                <Setter TargetName="border" Property="BorderBrush" Value="#6a6ad6"/>
+              </Trigger>
+              <Trigger Property="IsPressed" Value="True">
+                <Setter TargetName="border" Property="Background" Value="#232345"/>
+                <Setter TargetName="border" Property="BorderBrush" Value="#8a8aff"/>
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter TargetName="border" Property="Background" Value="#222"/>
+                <Setter TargetName="border" Property="BorderBrush" Value="#444"/>
+                <Setter Property="Foreground" Value="#888"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
     </Style>
     <Style TargetType="TextBox">
       <Setter Property="Margin" Value="4"/>
+      <Setter Property="Foreground" Value="#f8f8f2"/>
+      <Setter Property="Background" Value="#232323"/>
     </Style>
     <Style TargetType="Label">
       <Setter Property="Margin" Value="4"/>
+      <Setter Property="Foreground" Value="#f8f8f2"/>
+    </Style>
+    <Style TargetType="ListBox">
+      <Setter Property="Foreground" Value="#f8f8f2"/>
+      <Setter Property="Background" Value="#232323"/>
+    </Style>
+    <Style TargetType="ListBoxItem">
+      <Setter Property="Foreground" Value="#f8f8f2"/>
+      <Setter Property="Background" Value="#232323"/>
+    </Style>
+    <Style TargetType="TextBlock">
+      <Setter Property="Foreground" Value="#f8f8f2"/>
+    </Style>
+    <Style TargetType="GroupBox">
+      <Setter Property="Foreground" Value="#f8f8f2"/>
+    </Style>
+    <Style TargetType="ProgressBar">
+      <Setter Property="Foreground" Value="#f8f8f2"/>
     </Style>
   </Window.Resources>
   <Grid>
@@ -153,7 +203,7 @@ function Add-UrlsFromText {
     if ($urls) { Add-Log "Added $($urls.Count) URL(s)." }
 }
 
-function Browse-Folder {
+function Select-Folder {
     $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
     if ($DestPathBox.Text -and (Test-Path $DestPathBox.Text)) { $dialog.SelectedPath = $DestPathBox.Text }
     if ($dialog.ShowDialog() -eq 'OK') { $DestPathBox.Text = $dialog.SelectedPath }
@@ -181,10 +231,10 @@ function Invoke-Downloads {
     foreach ($url in $urls) {
         $i++
         Add-Log "[$i/$total] Downloading $url" 'INFO'
-        $args = @('--ignore-config', '-d', $dest, $url) | ForEach-Object { '"' + $_.Replace('"','\"') + '"' }
+        $dlArgs = @('--ignore-config', '-d', $dest, $url) | ForEach-Object { '"' + $_.Replace('"','\"') + '"' }
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = $galleryDl
-        $psi.Arguments = ($args -join ' ')
+        $psi.Arguments = ($dlArgs -join ' ')
         $psi.RedirectStandardOutput = $true
         $psi.RedirectStandardError = $true
         $psi.UseShellExecute = $false
@@ -206,10 +256,10 @@ function Invoke-Downloads {
 }
 
 # Event wiring
-$controls['BrowseBtn'].Add_Click({ Browse-Folder })
+$controls['BrowseBtn'].Add_Click({ Select-Folder })
 $controls['AddBtn'].Add_Click({
-    $input = [Microsoft.VisualBasic.Interaction]::InputBox('Enter URL(s) (one per line)', 'Add URLs')
-    Add-UrlsFromText -Text $input
+    $userInput = [Microsoft.VisualBasic.Interaction]::InputBox('Enter URL(s) (one per line)', 'Add URLs')
+    Add-UrlsFromText -Text $userInput
 })
 $controls['PasteBtn'].Add_Click({
     if ([System.Windows.Clipboard]::ContainsText()) {
