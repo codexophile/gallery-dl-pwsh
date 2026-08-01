@@ -69,7 +69,7 @@
       <RowDefinition Height="Auto"/>
       <RowDefinition Height="*"/>
       <RowDefinition Height="Auto"/>
-      <RowDefinition Height="120"/>
+      <RowDefinition Height="220"/>
     </Grid.RowDefinitions>
     <Grid.ColumnDefinitions>
       <ColumnDefinition Width="*"/>
@@ -84,7 +84,7 @@
 
     <!-- URL Controls -->
     <DockPanel Grid.Row="1" LastChildFill="True" Margin="6">
-  <Label Content="URLs (drag &amp; drop links or paste multi-line):" VerticalAlignment="Center"/>
+      <Label Content="URLs (drag &amp; drop links or paste multi-line):" VerticalAlignment="Center"/>
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
         <Button Name="PasteBtn" Content="Paste"/>
         <Button Name="AddBtn" Content="Add"/>
