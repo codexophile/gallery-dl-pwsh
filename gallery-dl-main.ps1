@@ -1,7 +1,7 @@
 [CmdletBinding()]
 param(
   [string]$url,
-  [string]$destination,
+  [string]$destination = 'X:\Pic\gallery-dl',
   [string]$ConfigPath = "C:\mega\Backups\gallery-dl.config.json"
 )
 
