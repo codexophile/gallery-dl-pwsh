@@ -131,6 +131,7 @@ $UrlListBox.Add_Drop({
 })
 
 if($destination) { $DestPathBox.Text = $destination }
+if($url) { Add-UrlsFromText -Text $url }
 
 Add-Log 'Ready.'
 
