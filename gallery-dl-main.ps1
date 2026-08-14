@@ -6,6 +6,7 @@ param(
 
 Set-Location $PSScriptRoot
 . ..\#lib\functions.ps1
+. .\gallery-dl-functions.ps1
 
 if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
   Write-Host 'Re-launching script in STA mode for WPF...'
@@ -19,19 +20,6 @@ Add-Type -AssemblyName PresentationCore, PresentationFramework, WindowsBase
 Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName Microsoft.VisualBasic
-
-function Get-GalleryDlExecutable {
-    $candidates = @()
-    $cmd = Get-Command gallery-dl -ErrorAction SilentlyContinue
-    if ($cmd) { $candidates += $cmd.Source }
-    $candidates += @(
-        "$env:APPDATA\Python\Scripts\gallery-dl.exe",
-        "$env:LOCALAPPDATA\Programs\Python\Python*\Scripts\gallery-dl.exe"
-    ) | ForEach-Object { Get-Item -Path $_ -ErrorAction SilentlyContinue } | ForEach-Object FullName
-    $exe = $candidates | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
-    if (-not $exe) { throw 'gallery-dl executable not found. Install with: pip install gallery-dl' }
-    return $exe
-}
 
 # Parse XAML directly (avoid XML DOM parsing issues with entity handling in comments)
 $Window = GuiFromXaml ./main-ui.xaml
@@ -62,32 +50,12 @@ Set-Variable -Name ProgressBar -Value $controls['ProgressBar'] -Scope Script
 Set-Variable -Name ProgressLabel -Value $controls['ProgressLabel'] -Scope Script
 Set-Variable -Name LogBox -Value $controls['LogBox'] -Scope Script
 
-function Add-Log {
-    param([string]$Message, [string]$Level = 'INFO')
-    $ts = (Get-Date).ToString('HH:mm:ss')
-    $line = "[$ts][$Level] $Message"
-    $LogBox.AppendText("$line`r`n")
-    $LogBox.ScrollToEnd()
-}
-
-function Add-UrlsFromText {
-    param([string]$Text)
-    if (-not $Text) { return }
-    $urls = $Text -split "`r?`n" | Where-Object { $_ -match '\S' } | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^https?://'} | Select-Object -Unique
-    foreach ($u in $urls) { if (-not $UrlListBox.Items.Contains($u)) { [void]$UrlListBox.Items.Add($u) } }
-    if ($urls) { Add-Log "Added $($urls.Count) URL(s)." }
-}
 
 function Select-Folder {
     $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
     if ($DestPathBox.Text -and (Test-Path $DestPathBox.Text)) { $dialog.SelectedPath = $DestPathBox.Text }
     if ($dialog.ShowDialog() -eq 'OK') { $DestPathBox.Text = $dialog.SelectedPath }
 }
-
-function Test-GalleryDlInstalled {
-    try { [void](Get-GalleryDlExecutable); return $true } catch { Add-Log $_.Exception.Message 'ERROR'; return $false }
-}
-
 function Invoke-Downloads {
     if (-not (Test-GalleryDlInstalled)) { return }
     $dest = $DestPathBox.Text.Trim()
