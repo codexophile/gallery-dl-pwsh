@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
   [string]$url,
-  [string]$destination
+  [string]$destination,
+  [string]$ConfigPath = "C:\mega\Backups\gallery-dl.config.json"
 )
 
 Set-Location $PSScriptRoot
@@ -74,7 +75,12 @@ function Invoke-Downloads {
     foreach ($url in $urls) {
         $i++
         Add-Log "[$i/$total] Downloading $url" 'INFO'
-        $dlArgs = @('--ignore-config', '-d', $dest, $url) | ForEach-Object { '"' + $_.Replace('"','\"') + '"' }
+        $dlArgs = @(
+          '--config',$ConfigPath,
+          '--cookies-from-browser', 'firefox',
+          '-d', $dest,
+          $url
+        ) | ForEach-Object { '"' + $_.Replace('"','\"') + '"' }
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = $galleryDl
         $psi.Arguments = ($dlArgs -join ' ')
