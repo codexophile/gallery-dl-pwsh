@@ -1,8 +1,10 @@
-<#!
-gallery-dl WPF GUI wrapper
-Requirements: PowerShell 5+ (Windows), gallery-dl installed and on PATH (pip install gallery-dl) or detectable in typical Python Scripts folders.
-#>
+[CmdletBinding()]
+param(
+  [string]$url,
+  [string]$destination
+)
 
+Set-Location $PSScriptRoot
 . ..\#lib\functions.ps1
 
 if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
@@ -159,6 +161,8 @@ $UrlListBox.Add_Drop({
         Add-UrlsFromText -Text $data
     }
 })
+
+if($destination) { $DestPathBox.Text = $destination }
 
 Add-Log 'Ready.'
 
