@@ -156,10 +156,10 @@ $UrlListBox.Add_PreviewDragOver({
     $_.Handled = $true
 })
 $UrlListBox.Add_Drop({
-    if ($_.Data.GetDataPresent([Windows.DataFormats]::Text)) {
-        $data = $_.Data.GetData([Windows.DataFormats]::Text)
-        Add-UrlsFromText -Text $data
-    }
+  if ($_.Data.GetDataPresent([Windows.DataFormats]::Text)) {
+    $data = $_.Data.GetData([Windows.DataFormats]::Text)
+    Add-UrlsFromText -Text $data
+  }
 })
 
 if($destination) { $DestPathBox.Text = $destination }
