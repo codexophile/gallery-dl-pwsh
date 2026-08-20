@@ -2,7 +2,9 @@
 param(
   [string]$url,
   [string]$destination = 'X:\Pic\gallery-dl',
-  [string]$ConfigPath = "C:\mega\Backups\gallery-dl.config.json"
+  [string]$ConfigPath = "$PSScriptRoot\gallery-dl.config.json",
+  [ValidateSet('auto-start', 'regular')]
+  [string]$mode
 )
 
 Set-Location $PSScriptRoot
