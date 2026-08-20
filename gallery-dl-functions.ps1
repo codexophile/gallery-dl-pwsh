@@ -20,11 +20,19 @@ function Add-Log {
 }
 
 function Add-UrlsFromText {
-    param([string]$Text)
-    if (-not $Text) { return }
-    $urls = $Text -split "`r?`n" | Where-Object { $_ -match '\S' } | ForEach-Object { $_.Trim() } | Where-Object { $_ -match '^https?://'} | Select-Object -Unique
-    foreach ($u in $urls) { if (-not $UrlListBox.Items.Contains($u)) { [void]$UrlListBox.Items.Add($u) } }
-    if ($urls) { Add-Log "Added $($urls.Count) URL(s)." }
+  param([string]$Text)
+  if (-not $Text) { return }
+  $urls = $Text -split "`r?`n|," |
+    Where-Object { $_ -match '\S' } |
+      ForEach-Object { $_.Trim() } |
+        Where-Object { $_ -match '^https?://'} |
+          Select-Object -Unique
+  foreach ($u in $urls) {
+    if (-not $UrlListBox.Items.Contains($u)) {
+      [void]$UrlListBox.Items.Add($u)
+    }
+  }
+  if ($urls) { Add-Log "Added $($urls.Count) URL(s)." }
 }
 
 function Test-GalleryDlInstalled {
