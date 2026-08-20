@@ -1,0 +1,13 @@
+{
+  "extractor": {
+    "facebook": {
+      "loop": true
+    },
+    "instagram": {
+      "filename": "{owner_id}- {post_shortcode} _{num}.{extension}"
+    },
+    "twitter": {
+      "filename": "{author[id]}- tw:{tweet_id} - rtw:{retweet_id} _{num}.{extension}"
+    }
+  }
+}
