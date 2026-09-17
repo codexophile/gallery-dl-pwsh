@@ -9,7 +9,13 @@
       "type": "PowerShell",
       "request": "launch",
       "script": "./gallery-dl-main.ps1",
-      "args": ["-Debug", "-destination", "C:\\Users\\xq151\\Downloads"]
+      "args": [
+        "-url",
+        "https://www.facebook.com/media/set/?set=a.483205433968542",
+        "-Debug",
+        "-destination",
+        "C:\\Users\\xq151\\Downloads"
+      ]
     }
   ]
 }
