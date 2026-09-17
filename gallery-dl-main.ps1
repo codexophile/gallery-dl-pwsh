@@ -24,6 +24,44 @@ Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName Microsoft.VisualBasic
 
+if (-not ('GalleryDlOutputCapture' -as [type])) {
+  Add-Type -TypeDefinition @'
+using System;
+using System.Collections.Concurrent;
+using System.Diagnostics;
+
+public sealed class GalleryDlOutputCapture
+{
+  public readonly ConcurrentQueue<string> Output = new ConcurrentQueue<string>();
+  public readonly ConcurrentQueue<string> Error = new ConcurrentQueue<string>();
+  private readonly Process process;
+
+  public GalleryDlOutputCapture(Process process)
+  {
+    this.process = process;
+    process.OutputDataReceived += OnOutput;
+    process.ErrorDataReceived += OnError;
+  }
+
+  public void Begin()
+  {
+    process.BeginOutputReadLine();
+    process.BeginErrorReadLine();
+  }
+
+  private void OnOutput(object sender, DataReceivedEventArgs args)
+  {
+    if (args.Data != null) Output.Enqueue(args.Data);
+  }
+
+  private void OnError(object sender, DataReceivedEventArgs args)
+  {
+    if (args.Data != null) Error.Enqueue(args.Data);
+  }
+}
+'@
+}
+
 $Window = GuiFromXaml ./main-ui.xaml
 $targetMonitorIndex = 1 
 if ($targetMonitorIndex -ge $screens.Count) {
@@ -62,30 +100,96 @@ function Select-Folder {
   if ($DestPathBox.Text -and (Test-Path $DestPathBox.Text)) { $dialog.SelectedPath = $DestPathBox.Text }
   if ($dialog.ShowDialog() -eq 'OK') { $DestPathBox.Text = $dialog.SelectedPath }
 }
+
+function ConvertTo-ProcessArgument {
+  param([AllowNull()][object]$Value)
+  $text = [string]$Value
+  $text = $text -replace '(\\*)"', '$1$1\"'
+  $text = $text -replace '(\\+)$', '$1$1'
+  return '"' + $text + '"'
+}
+
+function Update-ItemProgress {
+  param(
+    [pscustomobject]$State,
+    [string]$Event,
+    [string]$Path
+  )
+  if ($Event -eq 'prepare') {
+    $State.Discovered++
+    $ProgressBar.Maximum = [math]::Max(1, $State.Discovered)
+    Add-Log "Queued item: $Path" 'OUT'
+  }
+  elseif ($Event -eq 'download') {
+    $State.Completed++
+    $ProgressBar.Maximum = [math]::Max(1, $State.Discovered)
+    $ProgressBar.Value = [math]::Min($State.Completed, $ProgressBar.Maximum)
+    $ProgressLabel.Text = "$($State.Completed)/$($State.Discovered) items"
+    Add-Log "Downloaded item: $Path" 'OUT'
+  }
+}
+
+function Drain-DownloadOutput {
+  param(
+    [GalleryDlOutputCapture]$Capture,
+    [pscustomobject]$State
+  )
+  $line = $null
+  while ($Capture.Output.TryDequeue([ref]$line)) {
+    if ($line.StartsWith('__GDL_PREPARE__')) {
+      Update-ItemProgress -State $State -Event 'prepare' -Path $line.Substring('__GDL_PREPARE__'.Length)
+    }
+    elseif ($line.StartsWith('__GDL_DOWNLOAD__')) {
+      Update-ItemProgress -State $State -Event 'download' -Path $line.Substring('__GDL_DOWNLOAD__'.Length)
+    }
+    else {
+      Add-Log $line 'OUT'
+    }
+  }
+  while ($Capture.Error.TryDequeue([ref]$line)) {
+    Add-Log $line 'ERR'
+  }
+}
+
 function Invoke-Downloads {
   if (-not (Test-GalleryDlInstalled)) { return }
   $dest = $DestPathBox.Text.Trim()
   if (-not $dest) { Add-Log 'Destination path is empty.' 'WARN'; return }
-  if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null }
+  if (-not (Test-Path $ConfigPath -PathType Leaf)) {
+    Add-Log "Configuration file not found: $ConfigPath" 'ERROR'
+    return
+  }
+  try {
+    if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force -ErrorAction Stop | Out-Null }
+  }
+  catch {
+    Add-Log "Cannot access destination path '$dest': $($_.Exception.Message)" 'ERROR'
+    return
+  }
   $urls = @($UrlListBox.Items | ForEach-Object { $_ })
   if (-not $urls) { Add-Log 'No URLs to download.' 'WARN'; return }
   $galleryDl = Get-GalleryDlExecutable
   Add-Log "Using: $galleryDl"
+  Add-Log "Output root: $dest (gallery-dl may create subfolders from the configuration)"
   $total = $urls.Count
-  $ProgressBar.Minimum = 0; $ProgressBar.Maximum = $total; $ProgressBar.Value = 0
-  $ProgressLabel.Text = "0/$total"
+  $ProgressBar.Minimum = 0; $ProgressBar.Maximum = 1; $ProgressBar.Value = 0
+  $ProgressLabel.Text = '0/0 items'
   $controls['DownloadBtn'].IsEnabled = $false
   $sw = [System.Diagnostics.Stopwatch]::StartNew()
+  $progressState = [pscustomobject]@{ Discovered = 0; Completed = 0 }
   $i = 0
   foreach ($url in $urls) {
     $i++
     Add-Log "[$i/$total] Downloading $url" 'INFO'
+    $completedBeforeUrl = $progressState.Completed
     $dlArgs = @(
       '--config', $ConfigPath,
       '--cookies-from-browser', 'firefox',
       '-d', $dest,
+      '--Print', 'prepare:__GDL_PREPARE__{_path}',
+      '--Print', 'after:__GDL_DOWNLOAD__{_path}',
       $url
-    ) | ForEach-Object { '"' + $_.Replace('"', '\"') + '"' }
+    ) | ForEach-Object { ConvertTo-ProcessArgument $_ }
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $galleryDl
     $psi.Arguments = ($dlArgs -join ' ')
@@ -94,15 +198,24 @@ function Invoke-Downloads {
     $psi.UseShellExecute = $false
     $psi.CreateNoWindow = $true
     $proc = [System.Diagnostics.Process]::Start($psi)
-    $stdOut = $proc.StandardOutput.ReadToEnd()
-    $stdErr = $proc.StandardError.ReadToEnd()
+    $capture = [GalleryDlOutputCapture]::new($proc)
+    $capture.Begin()
+    while (-not $proc.WaitForExit(100)) {
+      Drain-DownloadOutput -Capture $capture -State $progressState
+      $Window.Dispatcher.Invoke([Action] {}, [System.Windows.Threading.DispatcherPriority]::Background)
+    }
     $proc.WaitForExit()
-    if ($stdOut) { Add-Log $stdOut.TrimEnd() 'OUT' }
-    if ($stdErr) { Add-Log $stdErr.TrimEnd() 'ERR' }
-    if ($proc.ExitCode -eq 0) { Add-Log "Completed: $url" 'OK' } else { Add-Log "Failed (code $($proc.ExitCode)): $url" 'ERROR' }
-    $ProgressBar.Value = $i
-    $ProgressLabel.Text = "$i/$total"
-    [System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action] {}, [System.Windows.Threading.DispatcherPriority]::Background)
+    Drain-DownloadOutput -Capture $capture -State $progressState
+    $downloadedForUrl = $progressState.Completed - $completedBeforeUrl
+    if ($proc.ExitCode -eq 0 -and $downloadedForUrl -gt 0) {
+      Add-Log "Completed: $url ($downloadedForUrl file(s))" 'OK'
+    }
+    elseif ($proc.ExitCode -eq 0) {
+      Add-Log "No files downloaded for: $url. The URL may contain no accessible media or all files may already exist." 'WARN'
+    }
+    else {
+      Add-Log "Failed (code $($proc.ExitCode)): $url" 'ERROR'
+    }
   }
   $sw.Stop()
   Add-Log "All done in $([math]::Round($sw.Elapsed.TotalSeconds,2))s" 'DONE'
