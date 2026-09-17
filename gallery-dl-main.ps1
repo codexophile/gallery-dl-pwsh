@@ -14,7 +14,7 @@ Set-Location $PSScriptRoot
 if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
   Write-Host 'Re-launching script in STA mode for WPF...'
   $psExe = (Get-Process -Id $PID).Path
-  $staArgs = @('-NoProfile','-ExecutionPolicy','Bypass','-File',"$PSCommandPath")
+  $staArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "$PSCommandPath")
   Start-Process -FilePath $psExe -ArgumentList $staArgs | Out-Null
   exit
 }
@@ -24,8 +24,11 @@ Add-Type -AssemblyName System.Drawing
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName Microsoft.VisualBasic
 
-# Parse XAML directly (avoid XML DOM parsing issues with entity handling in comments)
 $Window = GuiFromXaml ./main-ui.xaml
+$targetMonitorIndex = 1 
+if ($targetMonitorIndex -ge $screens.Count) {
+  $targetMonitorIndex = 0
+}
 
 # Helper: walk logical tree to collect named elements
 function Get-NamedElements {
@@ -55,55 +58,55 @@ Set-Variable -Name LogBox -Value $controls['LogBox'] -Scope Script
 
 
 function Select-Folder {
-    $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-    if ($DestPathBox.Text -and (Test-Path $DestPathBox.Text)) { $dialog.SelectedPath = $DestPathBox.Text }
-    if ($dialog.ShowDialog() -eq 'OK') { $DestPathBox.Text = $dialog.SelectedPath }
+  $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+  if ($DestPathBox.Text -and (Test-Path $DestPathBox.Text)) { $dialog.SelectedPath = $DestPathBox.Text }
+  if ($dialog.ShowDialog() -eq 'OK') { $DestPathBox.Text = $dialog.SelectedPath }
 }
 function Invoke-Downloads {
-    if (-not (Test-GalleryDlInstalled)) { return }
-    $dest = $DestPathBox.Text.Trim()
-    if (-not $dest) { Add-Log 'Destination path is empty.' 'WARN'; return }
-    if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null }
-    $urls = @($UrlListBox.Items | ForEach-Object { $_ })
-    if (-not $urls) { Add-Log 'No URLs to download.' 'WARN'; return }
-    $galleryDl = Get-GalleryDlExecutable
-    Add-Log "Using: $galleryDl"
-    $total = $urls.Count
-    $ProgressBar.Minimum = 0; $ProgressBar.Maximum = $total; $ProgressBar.Value = 0
-    $ProgressLabel.Text = "0/$total"
-    $controls['DownloadBtn'].IsEnabled = $false
-    $sw = [System.Diagnostics.Stopwatch]::StartNew()
-    $i = 0
-    foreach ($url in $urls) {
-        $i++
-        Add-Log "[$i/$total] Downloading $url" 'INFO'
-        $dlArgs = @(
-          '--config',$ConfigPath,
-          '--cookies-from-browser', 'firefox',
-          '-d', $dest,
-          $url
-        ) | ForEach-Object { '"' + $_.Replace('"','\"') + '"' }
-        $psi = New-Object System.Diagnostics.ProcessStartInfo
-        $psi.FileName = $galleryDl
-        $psi.Arguments = ($dlArgs -join ' ')
-        $psi.RedirectStandardOutput = $true
-        $psi.RedirectStandardError = $true
-        $psi.UseShellExecute = $false
-        $psi.CreateNoWindow = $true
-        $proc = [System.Diagnostics.Process]::Start($psi)
-        $stdOut = $proc.StandardOutput.ReadToEnd()
-        $stdErr = $proc.StandardError.ReadToEnd()
-        $proc.WaitForExit()
-        if ($stdOut) { Add-Log $stdOut.TrimEnd() 'OUT' }
-        if ($stdErr) { Add-Log $stdErr.TrimEnd() 'ERR' }
-        if ($proc.ExitCode -eq 0) { Add-Log "Completed: $url" 'OK' } else { Add-Log "Failed (code $($proc.ExitCode)): $url" 'ERROR' }
-        $ProgressBar.Value = $i
-        $ProgressLabel.Text = "$i/$total"
-        [System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action]{}, [System.Windows.Threading.DispatcherPriority]::Background)
-    }
-    $sw.Stop()
-    Add-Log "All done in $([math]::Round($sw.Elapsed.TotalSeconds,2))s" 'DONE'
-    $controls['DownloadBtn'].IsEnabled = $true
+  if (-not (Test-GalleryDlInstalled)) { return }
+  $dest = $DestPathBox.Text.Trim()
+  if (-not $dest) { Add-Log 'Destination path is empty.' 'WARN'; return }
+  if (-not (Test-Path $dest)) { New-Item -ItemType Directory -Path $dest -Force | Out-Null }
+  $urls = @($UrlListBox.Items | ForEach-Object { $_ })
+  if (-not $urls) { Add-Log 'No URLs to download.' 'WARN'; return }
+  $galleryDl = Get-GalleryDlExecutable
+  Add-Log "Using: $galleryDl"
+  $total = $urls.Count
+  $ProgressBar.Minimum = 0; $ProgressBar.Maximum = $total; $ProgressBar.Value = 0
+  $ProgressLabel.Text = "0/$total"
+  $controls['DownloadBtn'].IsEnabled = $false
+  $sw = [System.Diagnostics.Stopwatch]::StartNew()
+  $i = 0
+  foreach ($url in $urls) {
+    $i++
+    Add-Log "[$i/$total] Downloading $url" 'INFO'
+    $dlArgs = @(
+      '--config', $ConfigPath,
+      '--cookies-from-browser', 'firefox',
+      '-d', $dest,
+      $url
+    ) | ForEach-Object { '"' + $_.Replace('"', '\"') + '"' }
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $galleryDl
+    $psi.Arguments = ($dlArgs -join ' ')
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.UseShellExecute = $false
+    $psi.CreateNoWindow = $true
+    $proc = [System.Diagnostics.Process]::Start($psi)
+    $stdOut = $proc.StandardOutput.ReadToEnd()
+    $stdErr = $proc.StandardError.ReadToEnd()
+    $proc.WaitForExit()
+    if ($stdOut) { Add-Log $stdOut.TrimEnd() 'OUT' }
+    if ($stdErr) { Add-Log $stdErr.TrimEnd() 'ERR' }
+    if ($proc.ExitCode -eq 0) { Add-Log "Completed: $url" 'OK' } else { Add-Log "Failed (code $($proc.ExitCode)): $url" 'ERROR' }
+    $ProgressBar.Value = $i
+    $ProgressLabel.Text = "$i/$total"
+    [System.Windows.Threading.Dispatcher]::CurrentDispatcher.Invoke([Action] {}, [System.Windows.Threading.DispatcherPriority]::Background)
+  }
+  $sw.Stop()
+  Add-Log "All done in $([math]::Round($sw.Elapsed.TotalSeconds,2))s" 'DONE'
+  $controls['DownloadBtn'].IsEnabled = $true
 }
 
 # Event wiring
@@ -111,17 +114,17 @@ $controls['BrowseBtn'].Add_Click({ Select-Folder })
 $controls['AddBtn'].Add_Click({
     $userInput = [Microsoft.VisualBasic.Interaction]::InputBox('Enter URL(s) (one per line)', 'Add URLs')
     Add-UrlsFromText -Text $userInput
-})
+  })
 $controls['PasteBtn'].Add_Click({
     if ([System.Windows.Clipboard]::ContainsText()) {
-        Add-UrlsFromText -Text ([System.Windows.Clipboard]::GetText())
+      Add-UrlsFromText -Text ([System.Windows.Clipboard]::GetText())
     }
-})
+  })
 $controls['RemoveBtn'].Add_Click({
     $sel = @($UrlListBox.SelectedItems | ForEach-Object { $_ })
     foreach ($s in $sel) { $UrlListBox.Items.Remove($s) }
     if ($sel) { Add-Log "Removed $($sel.Count) item(s)." }
-})
+  })
 $controls['ClearBtn'].Add_Click({ $UrlListBox.Items.Clear(); Add-Log 'Cleared URL list.' })
 $controls['DownloadBtn'].Add_Click({ Invoke-Downloads })
 $controls['CopyLogBtn'].Add_Click({ [System.Windows.Clipboard]::SetText($LogBox.Text); Add-Log 'Log copied to clipboard.' })
@@ -130,16 +133,16 @@ $controls['CopyLogBtn'].Add_Click({ [System.Windows.Clipboard]::SetText($LogBox.
 $UrlListBox.Add_PreviewDragOver({
     if ($_.Data.GetDataPresent([Windows.DataFormats]::Text)) { $_.Effects = 'Copy' }
     $_.Handled = $true
-})
+  })
 $UrlListBox.Add_Drop({
-  if ($_.Data.GetDataPresent([Windows.DataFormats]::Text)) {
-    $data = $_.Data.GetData([Windows.DataFormats]::Text)
-    Add-UrlsFromText -Text $data
-  }
-})
+    if ($_.Data.GetDataPresent([Windows.DataFormats]::Text)) {
+      $data = $_.Data.GetData([Windows.DataFormats]::Text)
+      Add-UrlsFromText -Text $data
+    }
+  })
 
-if($destination) { $DestPathBox.Text = $destination }
-if($url) { Add-UrlsFromText -Text $url }
+if ($destination) { $DestPathBox.Text = $destination }
+if ($url) { Add-UrlsFromText -Text $url }
 
 Add-Log 'Ready.'
 
