@@ -1,13 +1,19 @@
 {
   "extractor": {
     "facebook": {
+      "directory": [
+        "facebook",
+        "{username}",
+        "set:{set_id}"
+      ],
+      "filename": "uid_{user_id} id_{id} _{num}.{extension}",
       "loop": true
     },
     "instagram": {
-      "filename": "{owner_id}- {post_shortcode} _{num}.{extension}"
+      "filename": "{owner_id}_{post_shortcode}_{num}.{extension}"
     },
     "twitter": {
-      "filename": "{author[id]}- tw:{tweet_id} - rtw:{retweet_id} _{num}.{extension}"
+      "filename": "{author[id]}_tw_{tweet_id}_rtw_{retweet_id}_{num}.{extension}"
     }
   }
 }
