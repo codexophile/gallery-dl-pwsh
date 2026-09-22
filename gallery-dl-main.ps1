@@ -257,6 +257,10 @@ $UrlListBox.Add_Drop({
 if ($destination) { $DestPathBox.Text = $destination }
 if ($url) { Add-UrlsFromText -Text $url }
 
+$Window.add_Closing({
+    [Environment]::Exit(0)
+  })
+
 Add-Log 'Ready.'
 
 $Window.ShowDialog() | Out-Null
