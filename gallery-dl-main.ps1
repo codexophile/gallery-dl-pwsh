@@ -63,10 +63,6 @@ public sealed class GalleryDlOutputCapture
 }
 
 $Window = GuiFromXaml ./main-ui.xaml
-$targetMonitorIndex = 1 
-if ($targetMonitorIndex -ge $screens.Count) {
-  $targetMonitorIndex = 0
-}
 
 # Helper: walk logical tree to collect named elements
 function Get-NamedElements {
@@ -263,4 +259,4 @@ $Window.add_Closing({
 
 Add-Log 'Ready.'
 
-$Window.ShowDialog() | Out-Null
+$null = Show-WpfFormOnMonitor $Window 0
