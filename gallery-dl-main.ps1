@@ -89,6 +89,35 @@ Set-Variable -Name DestPathBox -Value $controls['DestPathBox'] -Scope Script
 Set-Variable -Name ProgressBar -Value $controls['ProgressBar'] -Scope Script
 Set-Variable -Name ProgressLabel -Value $controls['ProgressLabel'] -Scope Script
 Set-Variable -Name LogBox -Value $controls['LogBox'] -Scope Script
+Set-Variable -Name CookiesFromBrowserCheckBox -Value $controls['CookiesFromBrowserCheckBox'] -Scope Script
+Set-Variable -Name BrowserComboBox -Value $controls['BrowserComboBox'] -Scope Script
+Set-Variable -Name BrowserProfileComboBox -Value $controls['BrowserProfileComboBox'] -Scope Script
+
+$browserProfiles = Get-BrowserProfiles
+foreach ($browser in ($browserProfiles.Keys | Sort-Object)) {
+  [void]$BrowserComboBox.Items.Add($browser)
+}
+if ($BrowserComboBox.Items.Count -gt 0) {
+  $BrowserComboBox.SelectedIndex = 0
+}
+
+function Update-BrowserProfiles {
+  $BrowserProfileComboBox.Items.Clear()
+  $browser = [string]$BrowserComboBox.SelectedItem
+  if (-not $browser -or -not $browserProfiles.ContainsKey($browser)) { return }
+  foreach ($profile in $browserProfiles[$browser]) {
+    [void]$BrowserProfileComboBox.Items.Add($profile)
+  }
+  if ($BrowserProfileComboBox.Items.Count -gt 0) {
+    $BrowserProfileComboBox.SelectedIndex = 0
+  }
+}
+
+function Update-BrowserControls {
+  $enabled = [bool]$CookiesFromBrowserCheckBox.IsChecked
+  $BrowserComboBox.IsEnabled = $enabled
+  $BrowserProfileComboBox.IsEnabled = $enabled
+}
 
 
 function Select-Folder {
@@ -178,14 +207,24 @@ function Invoke-Downloads {
     $i++
     Add-Log "[$i/$total] Downloading $url" 'INFO'
     $completedBeforeUrl = $progressState.Completed
-    $dlArgs = @(
-      '--config', $ConfigPath,
-      '--cookies-from-browser', 'firefox',
+    $dlArgs = @('--config', $ConfigPath)
+    if ($CookiesFromBrowserCheckBox.IsChecked) {
+      $browser = [string]$BrowserComboBox.SelectedItem
+      $profile = [string]$BrowserProfileComboBox.SelectedItem
+      if (-not $browser -or -not $profile) {
+        Add-Log 'Select a browser and profile, or disable browser cookies.' 'WARN'
+        $controls['DownloadBtn'].IsEnabled = $true
+        return
+      }
+      $dlArgs += @('--cookies-from-browser', "$browser`:$profile")
+    }
+    $dlArgs += @(
       '-d', $dest,
       '--Print', 'prepare:__GDL_PREPARE__{_path}',
       '--Print', 'after:__GDL_DOWNLOAD__{_path}',
       $url
-    ) | ForEach-Object { ConvertTo-ProcessArgument $_ }
+    )
+    $dlArgs = @($dlArgs | ForEach-Object { ConvertTo-ProcessArgument $_ })
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $galleryDl
     $psi.Arguments = ($dlArgs -join ' ')
@@ -220,6 +259,8 @@ function Invoke-Downloads {
 
 # Event wiring
 $controls['BrowseBtn'].Add_Click({ Select-Folder })
+$BrowserComboBox.Add_SelectionChanged({ Update-BrowserProfiles })
+$CookiesFromBrowserCheckBox.Add_Click({ Update-BrowserControls })
 $controls['AddBtn'].Add_Click({
     $userInput = [Microsoft.VisualBasic.Interaction]::InputBox('Enter URL(s) (one per line)', 'Add URLs')
     Add-UrlsFromText -Text $userInput
@@ -252,6 +293,8 @@ $UrlListBox.Add_Drop({
 
 if ($destination) { $DestPathBox.Text = $destination }
 if ($url) { Add-UrlsFromText -Text $url }
+Update-BrowserProfiles
+Update-BrowserControls
 
 $Window.add_Closing({
     [Environment]::Exit(0)

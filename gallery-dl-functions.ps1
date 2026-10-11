@@ -39,3 +39,49 @@ function Add-UrlsFromText {
 function Test-GalleryDlInstalled {
   try { [void](Get-GalleryDlExecutable); return $true } catch { Add-Log $_.Exception.Message 'ERROR'; return $false }
 }
+
+function Get-BrowserProfiles {
+  $browsers = @{}
+
+  function Get-ChromiumProfiles {
+    param([string]$Path)
+    if (-not (Test-Path $Path -PathType Container)) { return @() }
+    $profiles = @(
+      Get-ChildItem -Path $Path -Directory -Filter 'Profile *' -ErrorAction SilentlyContinue |
+        Select-Object -ExpandProperty Name
+    )
+    if (Test-Path (Join-Path $Path 'Default') -PathType Container) {
+      $profiles = @('Default') + $profiles
+    }
+    return $profiles
+  }
+
+  $firefoxProfilesPath = Join-Path $env:APPDATA 'Mozilla\Firefox\Profiles'
+  if (Test-Path $firefoxProfilesPath -PathType Container) {
+    $profiles = @(
+      Get-ChildItem -Path $firefoxProfilesPath -Directory -ErrorAction SilentlyContinue |
+        Select-Object -ExpandProperty Name
+    )
+    if ($profiles) { $browsers['firefox'] = $profiles }
+  }
+
+  $browserPaths = [ordered]@{
+    brave   = Join-Path $env:LOCALAPPDATA 'BraveSoftware\Brave-Browser\User Data'
+    chrome  = Join-Path $env:LOCALAPPDATA 'Google\Chrome\User Data'
+    edge    = Join-Path $env:LOCALAPPDATA 'Microsoft\Edge\User Data'
+    vivaldi = Join-Path $env:LOCALAPPDATA 'Vivaldi\User Data'
+    opera   = Join-Path $env:APPDATA 'Opera Software\Opera Stable'
+  }
+
+  foreach ($browser in $browserPaths.GetEnumerator()) {
+    $profiles = @(Get-ChromiumProfiles -Path $browser.Value)
+    if ($profiles) { $browsers[$browser.Name] = $profiles }
+  }
+
+  if ((Test-Path $browserPaths.opera -PathType Container) -and
+      -not $browsers.ContainsKey('opera')) {
+    $browsers['opera'] = @('Default')
+  }
+
+  return $browsers
+}

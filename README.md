@@ -5,6 +5,7 @@ Simple Windows PowerShell GUI front-end for [gallery-dl](https://github.com/mikf
 ## Features
 
 - Destination folder picker
+- Optional browser cookie loading with browser and profile selection
 - List of URLs (add, paste, drag & drop, remove, clear)
 - Per-media-item progress bar and log output (stdout / stderr separated by tag)
 - Copy log to clipboard
