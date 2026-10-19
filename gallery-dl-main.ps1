@@ -86,6 +86,7 @@ function Get-NamedElements {
 $controls = Get-NamedElements -Root $Window
 Set-Variable -Name UrlListBox -Value $controls['UrlListBox'] -Scope Script
 Set-Variable -Name DestPathBox -Value $controls['DestPathBox'] -Scope Script
+Set-Variable -Name TotalItemsBox -Value $controls['TotalItemsBox'] -Scope Script
 Set-Variable -Name ProgressBar -Value $controls['ProgressBar'] -Scope Script
 Set-Variable -Name ProgressLabel -Value $controls['ProgressLabel'] -Scope Script
 Set-Variable -Name LogBox -Value $controls['LogBox'] -Scope Script
@@ -134,6 +135,18 @@ function ConvertTo-ProcessArgument {
   return '"' + $text + '"'
 }
 
+function Update-ProgressDisplay {
+  param([pscustomobject]$State)
+  $displayTotal = @(
+    $State.EstimatedTotal
+    $State.Discovered
+    $State.Completed
+  ) | Measure-Object -Maximum | Select-Object -ExpandProperty Maximum
+  $ProgressBar.Maximum = [math]::Max(1, $displayTotal)
+  $ProgressBar.Value = [math]::Min($State.Completed, $ProgressBar.Maximum)
+  $ProgressLabel.Text = "$($State.Completed)/$displayTotal items"
+}
+
 function Update-ItemProgress {
   param(
     [pscustomobject]$State,
@@ -142,14 +155,12 @@ function Update-ItemProgress {
   )
   if ($Event -eq 'prepare') {
     $State.Discovered++
-    $ProgressBar.Maximum = [math]::Max(1, $State.Discovered)
+    Update-ProgressDisplay -State $State
     Add-Log "Queued item: $Path" 'OUT'
   }
   elseif ($Event -eq 'download') {
     $State.Completed++
-    $ProgressBar.Maximum = [math]::Max(1, $State.Discovered)
-    $ProgressBar.Value = [math]::Min($State.Completed, $ProgressBar.Maximum)
-    $ProgressLabel.Text = "$($State.Completed)/$($State.Discovered) items"
+    Update-ProgressDisplay -State $State
     Add-Log "Downloaded item: $Path" 'OUT'
   }
 }
@@ -193,6 +204,14 @@ function Invoke-Downloads {
   }
   $urls = @($UrlListBox.Items | ForEach-Object { $_ })
   if (-not $urls) { Add-Log 'No URLs to download.' 'WARN'; return }
+  $estimatedTotal = $urls.Count
+  if ($TotalItemsBox.Text.Trim()) {
+    if (-not [int]::TryParse($TotalItemsBox.Text.Trim(), [ref]$estimatedTotal) -or
+        $estimatedTotal -le 0) {
+      Add-Log 'Total media items must be a positive whole number, or left blank.' 'WARN'
+      return
+    }
+  }
   $galleryDl = Get-GalleryDlExecutable
   Add-Log "Using: $galleryDl"
   Add-Log "Output root: $dest (gallery-dl may create subfolders from the configuration)"
@@ -201,7 +220,12 @@ function Invoke-Downloads {
   $ProgressLabel.Text = '0/0 items'
   $controls['DownloadBtn'].IsEnabled = $false
   $sw = [System.Diagnostics.Stopwatch]::StartNew()
-  $progressState = [pscustomobject]@{ Discovered = 0; Completed = 0 }
+  $progressState = [pscustomobject]@{
+    EstimatedTotal = $estimatedTotal
+    Discovered = 0
+    Completed = 0
+  }
+  Update-ProgressDisplay -State $progressState
   $i = 0
   foreach ($url in $urls) {
     $i++

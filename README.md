@@ -7,6 +7,7 @@ Simple Windows PowerShell GUI front-end for [gallery-dl](https://github.com/mikf
 - Destination folder picker
 - Optional browser cookie loading with browser and profile selection
 - List of URLs (add, paste, drag & drop, remove, clear)
+- Optional estimated total media-item input for the progress bar
 - Per-media-item progress bar and log output (stdout / stderr separated by tag)
 - Copy log to clipboard
 
@@ -24,9 +25,11 @@ pwsh -File .\GalleryDlGui.ps1
 ```
 
 The progress bar counts completed media items, not source URLs. gallery-dl discovers
-the total while processing each URL, so the label starts at `0/0 items` and updates
-as items are queued and downloaded. Output and errors are appended to the log as
-gallery-dl emits them.
+the total while processing each URL. If **Total media items** is blank, the number
+of URLs is used as the initial estimate. If the total is known or can be estimated,
+enter it before downloading. The value is only an estimate: if gallery-dl discovers
+more items, the progress bar maximum expands automatically. Output and errors are
+appended to the log as gallery-dl emits them.
 
 The destination is the output root. The included configuration organizes Facebook
 sets below that root as `facebook\<username>\set_<id>`, so files may not appear

@@ -141,13 +141,20 @@
     <!-- Progress and Status -->
     <Grid Grid.Row="4" Margin="6">
       <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="90" />
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
-      <ProgressBar Name="ProgressBar" Height="20" Margin="0,0,8,0" Grid.Column="0" Minimum="0"
-        Maximum="100" ToolTip="Completed media items discovered from the URL list" />
-      <TextBlock Name="ProgressLabel" Grid.Column="1" VerticalAlignment="Center" Text="0/0 items"
-        ToolTip="Completed media items / discovered media items" />
+      <Label Grid.Column="0" Content="Total media items:" VerticalAlignment="Center"
+        ToolTip="Optional estimate; defaults to the number of URLs and expands if more items are found" />
+      <TextBox Name="TotalItemsBox" Grid.Column="1" Width="80" Height="24"
+        VerticalContentAlignment="Center"
+        ToolTip="Optional total or estimate; blank uses the number of URLs" />
+      <ProgressBar Name="ProgressBar" Height="20" Margin="8,0,8,0" Grid.Column="2" Minimum="0"
+        Maximum="100" ToolTip="Completed media items against the estimated or discovered total" />
+      <TextBlock Name="ProgressLabel" Grid.Column="3" VerticalAlignment="Center" Text="0/0 items"
+        ToolTip="Completed media items / estimated or discovered media items" />
     </Grid>
 
     <!-- Log -->
