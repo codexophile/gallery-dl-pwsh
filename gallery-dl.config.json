@@ -3,10 +3,10 @@
     "facebook": {
       "directory": [
         "facebook",
-        "{username}",
+        "uid_{user_id} upfbid_{user_pfbid} - {username}",
         "set:{set_id}"
       ],
-      "filename": "uid_{user_id} id_{id} _{num}.{extension}",
+      "filename": "id_{id} _{num}.{extension}",
       "loop": true
     },
     "instagram": {
