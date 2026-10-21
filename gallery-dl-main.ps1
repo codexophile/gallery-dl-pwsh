@@ -3,6 +3,10 @@ param(
   [string]$url,
   [string]$destination = 'X:\Pic\gallery-dl',
   [string]$ConfigPath = "$PSScriptRoot\gallery-dl.config.json",
+  [string]$Browser,
+  [string]$BrowserProfile,
+  [ValidateRange(0, 100)]
+  [double]$NotificationVolume = 10,
   [ValidateSet('auto-start', 'regular')]
   [string]$mode
 )
@@ -15,6 +19,14 @@ if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
   Write-Host 'Re-launching script in STA mode for WPF...'
   $psExe = (Get-Process -Id $PID).Path
   $staArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "$PSCommandPath")
+  foreach ($parameter in @('url', 'destination', 'ConfigPath', 'Browser', 'BrowserProfile', 'NotificationVolume', 'mode')) {
+    if ($PSBoundParameters.ContainsKey($parameter) -and $null -ne $PSBoundParameters[$parameter]) {
+      $value = [string]$PSBoundParameters[$parameter]
+      $value = $value -replace '(\\*)"', '$1$1\"'
+      $value = $value -replace '(\\+)$', '$1$1'
+      $staArgs += @("-$parameter", '"' + $value + '"')
+    }
+  }
   Start-Process -FilePath $psExe -ArgumentList $staArgs | Out-Null
   exit
 }
@@ -98,6 +110,9 @@ $browserProfiles = Get-BrowserProfiles
 foreach ($browser in ($browserProfiles.Keys | Sort-Object)) {
   [void]$BrowserComboBox.Items.Add($browser)
 }
+if ($Browser -and -not $BrowserComboBox.Items.Contains($Browser)) {
+  [void]$BrowserComboBox.Items.Add($Browser)
+}
 if ($BrowserComboBox.Items.Count -gt 0) {
   $BrowserComboBox.SelectedIndex = 0
 }
@@ -106,12 +121,35 @@ function Update-BrowserProfiles {
   $BrowserProfileComboBox.Items.Clear()
   $browser = [string]$BrowserComboBox.SelectedItem
   if (-not $browser -or -not $browserProfiles.ContainsKey($browser)) { return }
-  foreach ($profile in $browserProfiles[$browser]) {
-    [void]$BrowserProfileComboBox.Items.Add($profile)
+  foreach ($DetectedBrowserProfile in $browserProfiles[$browser]) {
+    [void]$BrowserProfileComboBox.Items.Add($DetectedBrowserProfile)
   }
   if ($BrowserProfileComboBox.Items.Count -gt 0) {
     $BrowserProfileComboBox.SelectedIndex = 0
   }
+}
+
+function Set-ConfiguredBrowser {
+  if (-not $Browser -and -not $BrowserProfile) { return }
+
+  if (-not $Browser -or -not $BrowserProfile) {
+    Add-Log 'Browser and browser profile must be specified together.' 'ERROR'
+    return
+  }
+
+  $browserIndex = $BrowserComboBox.Items.IndexOf($Browser)
+  if ($browserIndex -lt 0) {
+    Add-Log "Browser is not available: $Browser" 'ERROR'
+    return
+  }
+
+  $BrowserComboBox.SelectedIndex = $browserIndex
+  Update-BrowserProfiles
+  if (-not $BrowserProfileComboBox.Items.Contains($BrowserProfile)) {
+    [void]$BrowserProfileComboBox.Items.Add($BrowserProfile)
+  }
+  $BrowserProfileComboBox.SelectedItem = $BrowserProfile
+  $CookiesFromBrowserCheckBox.IsChecked = $true
 }
 
 function Update-BrowserControls {
@@ -125,6 +163,39 @@ function Select-Folder {
   $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
   if ($DestPathBox.Text -and (Test-Path $DestPathBox.Text)) { $dialog.SelectedPath = $DestPathBox.Text }
   if ($dialog.ShowDialog() -eq 'OK') { $DestPathBox.Text = $dialog.SelectedPath }
+}
+
+function Play-NotificationSound {
+  param(
+    [Parameter(Mandatory)]
+    [string]$Path,
+    [ValidateRange(0, 100)]
+    [double]$Volume = 100
+  )
+
+  if (-not (Test-Path $Path -PathType Leaf)) {
+    Add-Log "Notification sound not found: $Path" 'WARN'
+    return
+  }
+
+  try {
+    if ($script:NotificationPlayer) {
+      $script:NotificationPlayer.Close()
+    }
+    $script:NotificationPlayer = [System.Windows.Media.MediaPlayer]::new()
+    $script:NotificationPlayer.Volume = $Volume / 100
+    $script:NotificationPlayer.Open([System.Uri]::new($Path, [System.UriKind]::Absolute))
+    $script:NotificationPlayer.Play()
+  }
+  catch [System.IO.FileNotFoundException] {
+    Add-Log "Notification sound could not be loaded: $Path" 'WARN'
+  }
+  catch [System.InvalidOperationException] {
+    Add-Log "Notification sound could not be played: $Path" 'WARN'
+  }
+  catch [System.ArgumentException] {
+    Add-Log "Notification sound path is invalid: $Path" 'WARN'
+  }
 }
 
 function ConvertTo-ProcessArgument {
@@ -165,7 +236,7 @@ function Update-ItemProgress {
   }
 }
 
-function Drain-DownloadOutput {
+function Clear-DownloadOutput {
   param(
     [GalleryDlOutputCapture]$Capture,
     [pscustomobject]$State
@@ -207,7 +278,7 @@ function Invoke-Downloads {
   $estimatedTotal = $urls.Count
   if ($TotalItemsBox.Text.Trim()) {
     if (-not [int]::TryParse($TotalItemsBox.Text.Trim(), [ref]$estimatedTotal) -or
-        $estimatedTotal -le 0) {
+      $estimatedTotal -le 0) {
       Add-Log 'Total media items must be a positive whole number, or left blank.' 'WARN'
       return
     }
@@ -222,11 +293,12 @@ function Invoke-Downloads {
   $sw = [System.Diagnostics.Stopwatch]::StartNew()
   $progressState = [pscustomobject]@{
     EstimatedTotal = $estimatedTotal
-    Discovered = 0
-    Completed = 0
+    Discovered     = 0
+    Completed      = 0
   }
   Update-ProgressDisplay -State $progressState
   $i = 0
+  $ErroredCount = 0
   foreach ($url in $urls) {
     $i++
     Add-Log "[$i/$total] Downloading $url" 'INFO'
@@ -234,13 +306,13 @@ function Invoke-Downloads {
     $dlArgs = @('--config', $ConfigPath)
     if ($CookiesFromBrowserCheckBox.IsChecked) {
       $browser = [string]$BrowserComboBox.SelectedItem
-      $profile = [string]$BrowserProfileComboBox.SelectedItem
-      if (-not $browser -or -not $profile) {
+      $DetectedBrowserProfile = [string]$BrowserProfileComboBox.SelectedItem
+      if (-not $browser -or -not $DetectedBrowserProfile) {
         Add-Log 'Select a browser and profile, or disable browser cookies.' 'WARN'
         $controls['DownloadBtn'].IsEnabled = $true
         return
       }
-      $dlArgs += @('--cookies-from-browser', "$browser`:$profile")
+      $dlArgs += @('--cookies-from-browser', "$browser`:$DetectedBrowserProfile")
     }
     $dlArgs += @(
       '-d', $dest,
@@ -260,11 +332,11 @@ function Invoke-Downloads {
     $capture = [GalleryDlOutputCapture]::new($proc)
     $capture.Begin()
     while (-not $proc.WaitForExit(100)) {
-      Drain-DownloadOutput -Capture $capture -State $progressState
+      Clear-DownloadOutput -Capture $capture -State $progressState
       $Window.Dispatcher.Invoke([Action] {}, [System.Windows.Threading.DispatcherPriority]::Background)
     }
     $proc.WaitForExit()
-    Drain-DownloadOutput -Capture $capture -State $progressState
+    Clear-DownloadOutput -Capture $capture -State $progressState
     $downloadedForUrl = $progressState.Completed - $completedBeforeUrl
     if ($proc.ExitCode -eq 0 -and $downloadedForUrl -gt 0) {
       Add-Log "Completed: $url ($downloadedForUrl file(s))" 'OK'
@@ -274,11 +346,17 @@ function Invoke-Downloads {
     }
     else {
       Add-Log "Failed (code $($proc.ExitCode)): $url" 'ERROR'
+      $ErroredCount++
     }
   }
   $sw.Stop()
   Add-Log "All done in $([math]::Round($sw.Elapsed.TotalSeconds,2))s" 'DONE'
   $controls['DownloadBtn'].IsEnabled = $true
+  if ($ErroredCount -eq 0) {
+    $notificationPath = Join-Path $PSScriptRoot 'notification.wav'
+    Play-NotificationSound -Path $notificationPath -Volume $NotificationVolume
+    CountDown 15
+  }
 }
 
 # Event wiring
@@ -318,12 +396,16 @@ $UrlListBox.Add_Drop({
 if ($destination) { $DestPathBox.Text = $destination }
 if ($url) { Add-UrlsFromText -Text $url }
 Update-BrowserProfiles
+Set-ConfiguredBrowser
 Update-BrowserControls
 
 $Window.add_Closing({
+    if ($script:NotificationPlayer) {
+      $script:NotificationPlayer.Close()
+    }
     [Environment]::Exit(0)
   })
 
 Add-Log 'Ready.'
 
-$null = Show-WpfFormOnMonitor $Window 0
+$null = Show-WpfFormOnMonitor $Window 0 $true

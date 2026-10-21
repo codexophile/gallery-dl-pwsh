@@ -109,13 +109,18 @@
       </Grid.ColumnDefinitions>
       <CheckBox Name="CookiesFromBrowserCheckBox" Grid.Column="0"
         Content="Load cookies from browser"
-        VerticalAlignment="Center" IsChecked="False" />
+        VerticalAlignment="Center" IsChecked="False"
+        ToolTip="Enable browser cookie loading. The browser and profile can also be set with -Browser and -BrowserProfile." />
       <Label Grid.Column="1" Content="Browser:" VerticalAlignment="Center"
-        HorizontalAlignment="Right" />
-      <ComboBox Name="BrowserComboBox" Grid.Column="2" Width="130" IsEditable="False" />
+        HorizontalAlignment="Right"
+        ToolTip="Browser whose cookies gallery-dl should load." />
+      <ComboBox Name="BrowserComboBox" Grid.Column="2" Width="130" IsEditable="False"
+        ToolTip="Select the browser used for cookie loading." />
       <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center">
-        <Label Content="Profile:" VerticalAlignment="Center" />
-        <ComboBox Name="BrowserProfileComboBox" Width="130" IsEditable="False" />
+        <Label Content="Profile:" VerticalAlignment="Center"
+          ToolTip="Browser profile whose cookies gallery-dl should load." />
+        <ComboBox Name="BrowserProfileComboBox" Width="130" IsEditable="False"
+          ToolTip="Select the browser profile used for cookie loading." />
       </StackPanel>
     </Grid>
 

@@ -24,6 +24,26 @@ Right-click `GalleryDlGui.ps1` and choose "Run with PowerShell" or from a PowerS
 pwsh -File .\GalleryDlGui.ps1
 ```
 
+Browser cookie loading can be enabled and configured when starting the wrapper by
+passing both `-Browser` and `-BrowserProfile`:
+
+```powershell
+.\gallery-dl-main.ps1 -Browser chrome -BrowserProfile Default
+```
+
+The matching browser and profile are selected automatically in the UI and the
+**Load cookies from browser** option is enabled. The same values can be selected
+manually in the browser controls. Supported browser choices and profiles are
+populated from detected local browser data; explicitly supplied values are also
+retained in the controls so they can be passed to gallery-dl.
+
+When all downloads complete successfully, the wrapper plays `notification.wav`.
+Adjust its playback volume from 0 (muted) to 100 (full volume), for example:
+
+```powershell
+.\gallery-dl-main.ps1 -NotificationVolume 35
+```
+
 The progress bar counts completed media items, not source URLs. gallery-dl discovers
 the total while processing each URL. If **Total media items** is blank, the number
 of URLs is used as the initial estimate. If the total is known or can be estimated,
