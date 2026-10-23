@@ -356,6 +356,7 @@ function Invoke-Downloads {
     $notificationPath = Join-Path $PSScriptRoot 'notification.wav'
     Play-NotificationSound -Path $notificationPath -Volume $NotificationVolume
     CountDown 15
+    exitAndCloseTerminal
   }
 }
 
