@@ -399,8 +399,8 @@ function Invoke-Downloads {
   if ($ErroredCount -eq 0) {
     $notificationPath = Join-Path $PSScriptRoot 'notification.wav'
     Play-NotificationSound -Path $notificationPath -Volume $NotificationVolume
-    # CountDown 15
-    # exitAndCloseTerminal
+    CountDown 15
+    exitAndCloseTerminal
   }
 }
 
