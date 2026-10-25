@@ -15,6 +15,7 @@ Simple Windows PowerShell GUI front-end for [gallery-dl](https://github.com/mikf
 
 - Windows PowerShell 5.1 or PowerShell 7+
 - gallery-dl installed (e.g. `pip install gallery-dl`) and on PATH, or in a typical Python Scripts folder.
+- FFmpeg is discovered automatically for gallery-dl's yt-dlp downloader when available.
 
 ## Run
 
@@ -37,6 +38,11 @@ manually in the browser controls. Supported browser choices and profiles are
 populated from detected local browser data; explicitly supplied values are also
 retained in the controls so they can be passed to gallery-dl.
 
+If only `-Browser` is supplied, the first detected profile for that browser is
+selected automatically. If only `-BrowserProfile` is supplied, the wrapper uses
+it when exactly one detected browser has a matching profile; otherwise, select
+the browser and profile in the UI.
+
 When all downloads complete successfully, the wrapper plays `notification.wav`.
 Adjust its playback volume from 0 (muted) to 100 (full volume), for example:
 
@@ -58,6 +64,11 @@ reported as a warning, rather than as a completed download.
 
 The wrapper also handles Windows paths ending in a backslash when launching
 gallery-dl, so a selected folder such as `C:\Users\you\Downloads\` is valid.
+
+When FFmpeg is found, its executable path is passed through to gallery-dl's
+yt-dlp downloader as `--ffmpeg-location`. This enables format merging for
+video downloads. If FFmpeg cannot be found, downloads still run, but
+gallery-dl features that require FFmpeg may fail.
 
 ## Roadmap / Ideas
 

@@ -15,6 +15,16 @@ Set-Location $PSScriptRoot
 . ..\#lib\functions.ps1
 . .\gallery-dl-functions.ps1
 
+# Get FFmpeg location and add to base parameters
+$ffmpegPath = . 'C:\mega\IDEs\powershell\ffmpeg\ffmpeg-find.ps1' -Variety yt-dlp
+if ($ffmpegPath) {
+  Write-Verbose "Using FFmpeg from: $ffmpegPath"
+}
+else {
+  Write-Host $ffmpegPath
+  Write-Warning 'FFmpeg not found.'
+}
+
 if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
   Write-Host 'Re-launching script in STA mode for WPF...'
   $psExe = (Get-Process -Id $PID).Path
@@ -132,9 +142,36 @@ function Update-BrowserProfiles {
 function Set-ConfiguredBrowser {
   if (-not $Browser -and -not $BrowserProfile) { return }
 
-  if (-not $Browser -or -not $BrowserProfile) {
-    Add-Log 'Browser and browser profile must be specified together.' 'ERROR'
+  if ($Browser -and -not $BrowserProfile) {
+    $browserIndex = $BrowserComboBox.Items.IndexOf($Browser)
+    if ($browserIndex -lt 0) {
+      Add-Log "Browser is not available: $Browser" 'WARN'
+      return
+    }
+
+    $BrowserComboBox.SelectedIndex = $browserIndex
+    Update-BrowserProfiles
+    if ($BrowserProfileComboBox.Items.Count -eq 0) {
+      Add-Log "No profiles found for browser: $Browser" 'WARN'
+      return
+    }
+
+    $CookiesFromBrowserCheckBox.IsChecked = $true
     return
+  }
+
+  if (-not $Browser -and $BrowserProfile) {
+    $matchingBrowsers = @(
+      $browserProfiles.GetEnumerator() |
+        Where-Object { $_.Value -contains $BrowserProfile } |
+        Select-Object -ExpandProperty Name
+    )
+    if ($matchingBrowsers.Count -ne 1) {
+      Add-Log "Could not uniquely identify a browser for profile: $BrowserProfile" 'WARN'
+      return
+    }
+
+    $Browser = $matchingBrowsers[0]
   }
 
   $browserIndex = $BrowserComboBox.Items.IndexOf($Browser)
@@ -304,6 +341,13 @@ function Invoke-Downloads {
     Add-Log "[$i/$total] Downloading $url" 'INFO'
     $completedBeforeUrl = $progressState.Completed
     $dlArgs = @('--config', $ConfigPath)
+    if ($ffmpegPath) {
+      $ytdlArguments = @('--ffmpeg-location', $ffmpegPath) | ConvertTo-Json -Compress
+      $dlArgs += @(
+        '--option',
+        "downloader.ytdl.cmdline-args=$ytdlArguments"
+      )
+    }
     if ($CookiesFromBrowserCheckBox.IsChecked) {
       $browser = [string]$BrowserComboBox.SelectedItem
       $DetectedBrowserProfile = [string]$BrowserProfileComboBox.SelectedItem
@@ -355,8 +399,8 @@ function Invoke-Downloads {
   if ($ErroredCount -eq 0) {
     $notificationPath = Join-Path $PSScriptRoot 'notification.wav'
     Play-NotificationSound -Path $notificationPath -Volume $NotificationVolume
-    CountDown 15
-    exitAndCloseTerminal
+    # CountDown 15
+    # exitAndCloseTerminal
   }
 }
 
