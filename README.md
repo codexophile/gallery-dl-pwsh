@@ -8,7 +8,7 @@ Simple Windows PowerShell GUI front-end for [gallery-dl](https://github.com/mikf
 - Optional browser cookie loading with browser and profile selection
 - List of URLs (add, paste, drag & drop, remove, clear)
 - Optional estimated total media-item input for the progress bar
-- Per-media-item progress bar and log output (stdout / stderr separated by tag)
+- Per-media-item progress bar, `HH:mm:ss` ETA, and log output (stdout / stderr separated by tag)
 - Copy log to clipboard
 
 ## Requirements
@@ -50,12 +50,22 @@ Adjust its playback volume from 0 (muted) to 100 (full volume), for example:
 .\gallery-dl-main.ps1 -NotificationVolume 35
 ```
 
+You can provide the total number of media items when starting the wrapper. The
+value is placed in the **Total media items** field and can still be adjusted
+before downloading:
+
+```powershell
+.\gallery-dl-main.ps1 -TotalCount 125
+```
+
 The progress bar counts completed media items, not source URLs. gallery-dl discovers
 the total while processing each URL. If **Total media items** is blank, the number
 of URLs is used as the initial estimate. If the total is known or can be estimated,
 enter it before downloading. The value is only an estimate: if gallery-dl discovers
-more items, the progress bar maximum expands automatically. Output and errors are
-appended to the log as gallery-dl emits them.
+more items, the progress bar maximum expands automatically. Once at least one item
+has completed, the UI displays the estimated remaining time as `HH:mm:ss`; it is
+based on the observed completion rate and is unavailable until progress begins.
+Output and errors are appended to the log as gallery-dl emits them.
 
 The destination is the output root. The included configuration organizes Facebook
 sets below that root as `facebook\<username>\set_<id>`, so files may not appear

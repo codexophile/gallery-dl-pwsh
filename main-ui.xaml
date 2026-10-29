@@ -150,16 +150,20 @@
         <ColumnDefinition Width="90" />
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
       <Label Grid.Column="0" Content="Total media items:" VerticalAlignment="Center"
-        ToolTip="Optional estimate; defaults to the number of URLs and expands if more items are found" />
+        ToolTip="Optional total or estimate. You can also set it with -TotalCount when starting the script." />
       <TextBox Name="TotalItemsBox" Grid.Column="1" Width="80" Height="24"
         VerticalContentAlignment="Center"
-        ToolTip="Optional total or estimate; blank uses the number of URLs" />
+        ToolTip="Optional total or estimate; blank uses the number of URLs. A value supplied with -TotalCount appears here and can be edited." />
       <ProgressBar Name="ProgressBar" Height="20" Margin="8,0,8,0" Grid.Column="2" Minimum="0"
         Maximum="100" ToolTip="Completed media items against the estimated or discovered total" />
       <TextBlock Name="ProgressLabel" Grid.Column="3" VerticalAlignment="Center" Text="0/0 items"
         ToolTip="Completed media items / estimated or discovered media items" />
+      <TextBlock Name="EtaLabel" Grid.Column="4" Margin="12,0,4,0" VerticalAlignment="Center"
+        Text="ETA: --:--:--"
+        ToolTip="Estimated time remaining based on completed media items" />
     </Grid>
 
     <!-- Log -->

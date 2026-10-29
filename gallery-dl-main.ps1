@@ -8,7 +8,9 @@ param(
   [ValidateRange(0, 100)]
   [double]$NotificationVolume = 10,
   [ValidateSet('auto-start', 'regular')]
-  [string]$mode
+  [string]$mode,
+  [ValidateRange(1, [int]::MaxValue)]
+  [int]$TotalCount
 )
 
 Set-Location $PSScriptRoot
@@ -29,7 +31,7 @@ if ([Threading.Thread]::CurrentThread.GetApartmentState() -ne 'STA') {
   Write-Host 'Re-launching script in STA mode for WPF...'
   $psExe = (Get-Process -Id $PID).Path
   $staArgs = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "$PSCommandPath")
-  foreach ($parameter in @('url', 'destination', 'ConfigPath', 'Browser', 'BrowserProfile', 'NotificationVolume', 'mode')) {
+  foreach ($parameter in @('url', 'destination', 'ConfigPath', 'Browser', 'BrowserProfile', 'NotificationVolume', 'mode', 'TotalCount')) {
     if ($PSBoundParameters.ContainsKey($parameter) -and $null -ne $PSBoundParameters[$parameter]) {
       $value = [string]$PSBoundParameters[$parameter]
       $value = $value -replace '(\\*)"', '$1$1\"'
@@ -111,6 +113,7 @@ Set-Variable -Name DestPathBox -Value $controls['DestPathBox'] -Scope Script
 Set-Variable -Name TotalItemsBox -Value $controls['TotalItemsBox'] -Scope Script
 Set-Variable -Name ProgressBar -Value $controls['ProgressBar'] -Scope Script
 Set-Variable -Name ProgressLabel -Value $controls['ProgressLabel'] -Scope Script
+Set-Variable -Name EtaLabel -Value $controls['EtaLabel'] -Scope Script
 Set-Variable -Name LogBox -Value $controls['LogBox'] -Scope Script
 Set-Variable -Name CookiesFromBrowserCheckBox -Value $controls['CookiesFromBrowserCheckBox'] -Scope Script
 Set-Variable -Name BrowserComboBox -Value $controls['BrowserComboBox'] -Scope Script
@@ -164,7 +167,7 @@ function Set-ConfiguredBrowser {
     $matchingBrowsers = @(
       $browserProfiles.GetEnumerator() |
         Where-Object { $_.Value -contains $BrowserProfile } |
-        Select-Object -ExpandProperty Name
+          Select-Object -ExpandProperty Name
     )
     if ($matchingBrowsers.Count -ne 1) {
       Add-Log "Could not uniquely identify a browser for profile: $BrowserProfile" 'WARN'
@@ -253,6 +256,25 @@ function Update-ProgressDisplay {
   $ProgressBar.Maximum = [math]::Max(1, $displayTotal)
   $ProgressBar.Value = [math]::Min($State.Completed, $ProgressBar.Maximum)
   $ProgressLabel.Text = "$($State.Completed)/$displayTotal items"
+  if ($State.Completed -eq 0) {
+    $EtaLabel.Text = 'ETA: --:--:--'
+    return
+  }
+
+  $remaining = [math]::Max(0, $displayTotal - $State.Completed)
+  if ($remaining -eq 0) {
+    $eta = [TimeSpan]::Zero
+  }
+  else {
+    $elapsedSeconds = $State.Stopwatch.Elapsed.TotalSeconds
+    if ($elapsedSeconds -le 0) {
+      $EtaLabel.Text = 'ETA: --:--:--'
+      return
+    }
+    $itemsPerSecond = $State.Completed / $elapsedSeconds
+    $eta = [TimeSpan]::FromSeconds([math]::Ceiling($remaining / $itemsPerSecond))
+  }
+  $EtaLabel.Text = "ETA: $($eta.ToString('hh\:mm\:ss'))"
 }
 
 function Update-ItemProgress {
@@ -326,12 +348,14 @@ function Invoke-Downloads {
   $total = $urls.Count
   $ProgressBar.Minimum = 0; $ProgressBar.Maximum = 1; $ProgressBar.Value = 0
   $ProgressLabel.Text = '0/0 items'
+  $EtaLabel.Text = 'ETA: --:--:--'
   $controls['DownloadBtn'].IsEnabled = $false
   $sw = [System.Diagnostics.Stopwatch]::StartNew()
   $progressState = [pscustomobject]@{
     EstimatedTotal = $estimatedTotal
     Discovered     = 0
     Completed      = 0
+    Stopwatch      = $sw
   }
   Update-ProgressDisplay -State $progressState
   $i = 0
@@ -440,6 +464,9 @@ $UrlListBox.Add_Drop({
 
 if ($destination) { $DestPathBox.Text = $destination }
 if ($url) { Add-UrlsFromText -Text $url }
+if ($PSBoundParameters.ContainsKey('TotalCount')) {
+  $TotalItemsBox.Text = $TotalCount.ToString()
+}
 Update-BrowserProfiles
 Set-ConfiguredBrowser
 Update-BrowserControls
