@@ -9,13 +9,20 @@ param(
   [double]$NotificationVolume = 10,
   [ValidateSet('auto-start', 'regular')]
   [string]$mode,
-  [ValidateRange(1, [int]::MaxValue)]
+  # [ValidateRange(1, [int]::MaxValue)]
   [int]$TotalCount
 )
 
 Set-Location $PSScriptRoot
 . ..\#lib\functions.ps1
 . .\gallery-dl-functions.ps1
+
+foreach ($name in 'TotalCount') {
+  if ($PSBoundParameters.ContainsKey($name) -and "$($PSBoundParameters[$name])" -eq '0') {
+    [void]$PSBoundParameters.Remove($name)
+    Set-Variable -Name $name -Value $null
+  }
+}
 
 # Get FFmpeg location and add to base parameters
 $ffmpegPath = . 'C:\mega\IDEs\powershell\ffmpeg\ffmpeg-find.ps1' -Variety yt-dlp

@@ -6,14 +6,14 @@
         "uid_{user_id} upfbid_{user_pfbid} - {username}",
         "set:{set_id}"
       ],
-      "filename": "id_{id} _{num}.{extension}",
+      "filename": "uid_{user_id} upfbid_{user_pfbid} set_{set_id} id_{id} _{num}.{extension}",
       "loop": true
     },
     "instagram": {
-      "filename": "{owner_id}_{post_shortcode}_{num}.{extension}"
+      "filename": "ownerId_{owner_id} username_{username} postId_{post_id } postShortcode_{post_shortcode} _{num}.{extension}"
     },
     "twitter": {
-      "filename": "{author[id]}_tw_{tweet_id}_rtw_{retweet_id}_{num}.{extension}"
+      "filename": "authorId_{author[id]} tweetId_{tweet_id} rtweetId_{retweet_id} _{num}.{extension}"
     }
   }
 }
