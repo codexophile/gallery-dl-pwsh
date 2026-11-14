@@ -14,6 +14,12 @@
     },
     "twitter": {
       "filename": "authorId_{author[id]} tweetId_{tweet_id} rtweetId_{retweet_id} _{num}.{extension}"
+    },
+    "reddit": {
+      "api": "oauth",
+      "headers": {
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+      }
     }
   }
 }
