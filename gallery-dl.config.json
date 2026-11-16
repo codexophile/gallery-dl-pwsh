@@ -10,10 +10,18 @@
       "loop": true
     },
     "instagram": {
+      "directory": [
+        "instagram",
+        "ownnerId_{owner_id}"
+      ],
       "filename": "ownerId_{owner_id} username_{username} postId_{post_id } postShortcode_{post_shortcode} _{num}.{extension}"
     },
     "twitter": {
-      "filename": "authorId_{author[id]} tweetId_{tweet_id} rtweetId_{retweet_id} _{num}.{extension}"
+      "directory": [
+        "twitter",
+        "authorId_{author[id]}"
+      ],
+      "filename": "authorId_{author[id]} authorNick_{author[nick]} authorName_{author[name]} tweetId_{tweet_id} rtweetId_{retweet_id} _{num}.{extension}"
     },
     "reddit": {
       "api": "oauth",
